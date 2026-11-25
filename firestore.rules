@@ -1,0 +1,152 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function hasProfile() {
+      return isSignedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function profile() {
+      return get(userPath(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return hasProfile() && profile().disabled != true;
+    }
+
+    function isAdmin() {
+      return isActive() && profile().role == 'admin';
+    }
+
+    function perm(dept) {
+      return isActive() && profile().permissions != null ? profile().permissions[dept] : 'none';
+    }
+
+    function canView(dept) {
+      return isAdmin() || perm(dept) == 'view' || perm(dept) == 'edit';
+    }
+
+    function canEdit(dept) {
+      return isAdmin() || perm(dept) == 'edit';
+    }
+
+    match /users/{uid} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == uid
+        || canView('users_permissions')
+        || canView('employee_activity')
+        || isActive()
+      );
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isActive() && (
+        canView(resource.data.department)
+        || canView('accounting')
+        || canView('employee_activity')
+      );
+      allow create: if isActive() && canEdit(request.resource.data.department);
+      allow update: if isActive() && canEdit(resource.data.department) && request.resource.data.department == resource.data.department;
+      allow delete: if isActive() && canEdit(resource.data.department);
+
+      match /private/{docId} {
+        allow read: if isActive() && canView(get(/databases/$(database)/documents/bookings/$(bookingId)).data.department);
+        allow create, update, delete: if isActive() && canEdit(get(/databases/$(database)/documents/bookings/$(bookingId)).data.department);
+      }
+    }
+
+    match /field_definitions/{fieldId} {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /visa_destinations/{destId} {
+      allow read: if canView('visas') || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /visa_cases/{caseId} {
+      allow read: if canView('visas') || canView('accounting') || canView('employee_activity');
+      allow create, update, delete: if canEdit('visas');
+    }
+
+    match /suppliers/{supplierId} {
+      allow read: if canView('visas') || canView('accounting');
+      allow create, update, delete: if canEdit('visas') || canEdit('accounting');
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if canView('visas') || canView('accounting');
+      allow create, update, delete: if canEdit('visas') || canEdit('accounting');
+    }
+
+    match /apartments/{aptId} {
+      allow read: if canView('real_estate') || canView('accounting') || canView('employee_activity');
+      allow create, update, delete: if canEdit('real_estate');
+    }
+
+    match /apartment_clients/{clientId} {
+      allow read: if canView('real_estate');
+      allow create, update, delete: if canEdit('real_estate');
+    }
+
+    match /inspections/{insId} {
+      allow read: if canView('real_estate');
+      allow create, update, delete: if canEdit('real_estate');
+    }
+
+    match /payments/{payId} {
+      allow read: if canView('accounting');
+      allow create, update, delete: if canEdit('accounting');
+    }
+
+    match /debts/{debtId} {
+      allow read: if canView('accounting');
+      allow create, update, delete: if canEdit('accounting');
+    }
+
+    match /commissions/{commId} {
+      allow read: if canView('accounting');
+      allow create, update, delete: if canEdit('accounting');
+    }
+
+    match /settings/{settingId} {
+      allow read: if isActive();
+      allow create, update: if isAdmin() || canEdit('visas') || canEdit('real_estate') || canEdit('printing');
+      allow delete: if false;
+    }
+
+    match /counters/{deptId} {
+      allow read, create, update: if isActive() && canEdit(deptId);
+      allow delete: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if canView('users_permissions');
+      allow create: if isActive();
+      allow update, delete: if false;
+    }
+
+    match /activity_logs/{logId} {
+      allow read: if canView('employee_activity') || (isSignedIn() && resource.data.user_uid == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.user_uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /access_logs/{logId} {
+      allow read: if isAdmin() || canView('users_permissions');
+      allow create: if isActive();
+      allow update, delete: if false;
+    }
+  }
+}
