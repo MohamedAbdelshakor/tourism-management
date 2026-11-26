@@ -159,8 +159,8 @@ export const ManageFieldsPage: React.FC<Props> = ({ department }) => {
       </form>
 
       {/* Fields List */}
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm min-w-[560px]">
           <thead>
             <tr className="table-head">
               <th className="px-4 py-3 text-right">اسم الحقل</th>

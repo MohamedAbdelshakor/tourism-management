@@ -9,6 +9,17 @@
     background-color: #f6f8fc;
     color: #1c2c42;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 
@@ -18,15 +29,15 @@
   }
 
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover focus:outline-none focus:ring-2 focus:ring-brand-primary/30 disabled:opacity-60 disabled:cursor-not-allowed;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-brand-primary px-4 py-2.5 sm:py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-primary-hover focus:outline-none focus:ring-2 focus:ring-brand-primary/30 disabled:opacity-60 disabled:cursor-not-allowed;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-brand-input-border bg-white px-4 py-2 text-sm font-medium text-brand-ink shadow-sm transition-colors hover:bg-brand-info hover:text-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-brand-input-border bg-white px-4 py-2.5 sm:py-2 text-sm font-medium text-brand-ink shadow-sm transition-colors hover:bg-brand-info hover:text-brand-accent focus:outline-none focus:ring-2 focus:ring-brand-primary/20 disabled:opacity-60;
   }
 
   .btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30 disabled:opacity-60;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-2.5 sm:py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500/30 disabled:opacity-60;
   }
 
   .form-label {
@@ -34,7 +45,7 @@
   }
 
   .form-input {
-    @apply w-full rounded-lg border border-brand-input-border bg-white px-3 py-2 text-sm text-brand-ink placeholder:text-brand-muted/70 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/15 transition-colors;
+    @apply w-full rounded-lg border border-brand-input-border bg-white px-3 py-2 text-base sm:text-sm text-brand-ink placeholder:text-brand-muted/70 focus:border-brand-primary focus:outline-none focus:ring-2 focus:ring-brand-primary/15 transition-colors;
   }
 
   .table-head {

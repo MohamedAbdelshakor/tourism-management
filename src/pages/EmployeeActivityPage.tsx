@@ -104,11 +104,11 @@ export const EmployeeActivityPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <div className="px-4 py-3 border-b border-brand-border text-sm font-bold text-brand-accent">
           سجل الدخول والخروج الأخير
         </div>
-        <table className="w-full text-xs">
+        <table className="w-full text-xs min-w-[440px]">
           <thead>
             <tr className="table-head">
               <th className="px-4 py-2.5 text-right">الموظف</th>

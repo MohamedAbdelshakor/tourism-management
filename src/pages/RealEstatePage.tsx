@@ -133,7 +133,7 @@ export const RealEstatePage: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-brand-border pb-2">
+      <div className="flex gap-2 overflow-x-auto no-scrollbar border-b border-brand-border pb-2 -mx-1 px-1">
         {[
           { id: 'apartments', label: `الشقق (${apartments.length})` },
           { id: 'clients', label: `متابعة العملاء (${clients.length})` },
@@ -143,7 +143,7 @@ export const RealEstatePage: React.FC = () => {
             key={t.id}
             type="button"
             onClick={() => setTab(t.id as typeof tab)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               tab === t.id ? 'bg-brand-primary text-white' : 'bg-white border border-brand-border text-brand-ink hover:bg-brand-info'
             }`}
           >
@@ -241,8 +241,8 @@ export const RealEstatePage: React.FC = () => {
             </form>
           )}
 
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="table-head">
                   <th className="px-4 py-3 text-right">العميل</th>
@@ -302,8 +302,8 @@ export const RealEstatePage: React.FC = () => {
             </form>
           )}
 
-          <div className="card overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="card overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="table-head">
                   <th className="px-4 py-3 text-right">الشقة</th>

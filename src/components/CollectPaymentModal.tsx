@@ -72,8 +72,8 @@ export const CollectPaymentModal: React.FC<Props> = ({ target, onClose, onConfir
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="card w-full max-w-md overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4">
+      <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="bg-brand-sidebar text-white px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Wallet className="w-4 h-4 text-brand-sidebar-label" />
@@ -118,7 +118,7 @@ export const CollectPaymentModal: React.FC<Props> = ({ target, onClose, onConfir
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="form-label">طريقة الدفع</label>
               <select

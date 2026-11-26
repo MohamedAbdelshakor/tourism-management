@@ -40,19 +40,19 @@ export const Layout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-brand-page text-brand-ink">
+    <div className="min-h-screen flex bg-brand-page text-brand-ink overflow-x-hidden">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 right-0 z-40 w-64 bg-brand-sidebar text-white flex flex-col transition-transform duration-200 no-print ${
-          mobileOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        className={`fixed lg:static inset-y-0 right-0 z-40 w-72 sm:w-64 bg-brand-sidebar text-white flex flex-col transition-transform duration-200 no-print ${
+          mobileOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between gap-2">
@@ -138,24 +138,29 @@ export const Layout: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-white border-b border-brand-border px-4 lg:px-6 h-14 flex items-center justify-between no-print">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-brand-border px-3 sm:px-4 lg:px-6 h-14 flex items-center justify-between gap-2 no-print">
+          <div className="flex items-center gap-2.5 min-w-0">
             <button
               type="button"
-              className="lg:hidden p-2 rounded-lg border border-brand-border text-brand-ink"
+              className="lg:hidden p-2 rounded-lg border border-brand-border text-brand-ink hover:bg-brand-info shrink-0"
               onClick={() => setMobileOpen(true)}
               aria-label="فتح القائمة"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <span className="text-sm font-semibold text-brand-accent">
-              {profile?.role === 'admin' ? 'مدير النظام' : 'موظف'}
+            <img
+              src="/logos/red-star-logo.jpg"
+              alt="Red Star Travel"
+              className="lg:hidden h-8 w-8 rounded-md object-contain shrink-0"
+            />
+            <span className="text-sm font-semibold text-brand-accent truncate">
+              {profile?.role === 'admin' ? 'مدير النظام' : profile?.name || 'موظف'}
             </span>
           </div>
-          <div className="text-xs text-brand-muted">العملة الافتراضية: الجنيه المصري (ج.م)</div>
+          <div className="hidden sm:block text-xs text-brand-muted shrink-0">العملة الافتراضية: الجنيه المصري (ج.م)</div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">
           <Outlet />
         </main>
       </div>
