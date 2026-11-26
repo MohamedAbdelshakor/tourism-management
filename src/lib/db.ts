@@ -25,6 +25,7 @@ import {
   ExpenseRecord,
   FieldDefinition,
   InspectionRecord,
+  PaymentMethod,
   PaymentRecord,
   PrintSettings,
   SupplierRecord,
@@ -44,6 +45,46 @@ function nowIso(): string {
 
 function sortDescBy<T extends Record<string, unknown>>(rows: T[], key: string): T[] {
   return [...rows].sort((a, b) => String(b[key] ?? '').localeCompare(String(a[key] ?? '')));
+}
+
+async function syncAutoPayment(params: {
+  source_type: 'booking' | 'visa' | 'apartment';
+  source_id: string;
+  client_name: string;
+  reference: string;
+  amount_piasters: number;
+  payment_method?: PaymentMethod;
+  payment_date: string;
+  notes: string;
+}): Promise<void> {
+  const docId = `auto_${params.source_type}_${params.source_id}`;
+  const ref = doc(db, 'payments', docId);
+  if (params.amount_piasters > 0) {
+    await setDoc(
+      ref,
+      {
+        client_name: params.client_name || '—',
+        reference: params.reference,
+        amount_minor: params.amount_piasters,
+        currency: 'EGP',
+        exchange_rate_on_receipt: null,
+        payment_method: params.payment_method ?? 'cash',
+        payment_date: params.payment_date || nowIso().slice(0, 10),
+        notes: params.notes,
+        source_type: params.source_type,
+        source_id: params.source_id,
+        created_at: nowIso(),
+      },
+      { merge: true },
+    );
+  } else {
+    try {
+      await deleteDoc(ref);
+    } catch {
+      // Auto payment doc may not exist
+    }
+  }
+  readCache.invalidate('payments');
 }
 
 // ============================================================
@@ -346,6 +387,17 @@ export async function saveBooking(
     sensitiveChanged.push('national_id');
   }
 
+  await syncAutoPayment({
+    source_type: 'booking',
+    source_id: id,
+    client_name: booking.client_name,
+    reference: receiptNumber,
+    amount_piasters: booking.paid_piasters,
+    payment_method: booking.payment_method,
+    payment_date: booking.booking_date,
+    notes: booking.department === 'domestic_tourism' ? 'تحصيل تلقائي — سياحة داخلية' : 'تحصيل تلقائي — سياحة خارجية',
+  });
+
   readCache.invalidate('bookings');
   await recordAudit({
     action: isNew ? 'create' : 'update',
@@ -368,6 +420,16 @@ export async function deleteBooking(booking: BookingRecord, actor: ActorInfo): P
     // Private subdoc may not exist
   }
   await deleteDoc(doc(db, 'bookings', booking.id));
+  await syncAutoPayment({
+    source_type: 'booking',
+    source_id: booking.id,
+    client_name: booking.client_name,
+    reference: booking.receipt_number,
+    amount_piasters: 0,
+    payment_date: booking.booking_date,
+    notes: '',
+  });
+
   readCache.invalidate('bookings');
   await recordAudit({
     action: 'delete',
@@ -490,6 +552,17 @@ export async function saveVisaCase(
     const ref = await addDoc(collection(db, 'visa_cases'), payload);
     id = ref.id;
   }
+  await syncAutoPayment({
+    source_type: 'visa',
+    source_id: id,
+    client_name: vc.client_name,
+    reference: invoiceNumber,
+    amount_piasters: vc.paid_piasters,
+    payment_method: vc.payment_method,
+    payment_date: vc.case_date,
+    notes: `تحصيل تلقائي — تأشيرات (${vc.destination_name || 'عام'})`,
+  });
+
   readCache.invalidate('visa_cases');
   await recordAudit({
     action: options.id ? 'update' : 'create',
@@ -505,6 +578,16 @@ export async function saveVisaCase(
 
 export async function deleteVisaCase(vc: VisaCaseRecord, actor: ActorInfo): Promise<void> {
   await deleteDoc(doc(db, 'visa_cases', vc.id));
+  await syncAutoPayment({
+    source_type: 'visa',
+    source_id: vc.id,
+    client_name: vc.client_name,
+    reference: vc.invoice_number,
+    amount_piasters: 0,
+    payment_date: vc.case_date,
+    notes: '',
+  });
+
   readCache.invalidate('visa_cases');
   await recordAudit({
     action: 'delete',
@@ -664,6 +747,17 @@ export async function saveApartment(
     const ref = await addDoc(collection(db, 'apartments'), payload);
     id = ref.id;
   }
+  await syncAutoPayment({
+    source_type: 'apartment',
+    source_id: id,
+    client_name: apt.buyer_name || apt.name_or_address,
+    reference: invoiceNumber || apt.name_or_address,
+    amount_piasters: apt.paid_piasters,
+    payment_method: apt.payment_method,
+    payment_date: apt.sale_date || nowIso().slice(0, 10),
+    notes: `تحصيل تلقائي — عقارات (${apt.name_or_address})`,
+  });
+
   readCache.invalidate('apartments');
   await recordAudit({
     action: options.id ? 'update' : 'create',
@@ -679,6 +773,16 @@ export async function saveApartment(
 
 export async function deleteApartment(apt: ApartmentRecord, actor: ActorInfo): Promise<void> {
   await deleteDoc(doc(db, 'apartments', apt.id));
+  await syncAutoPayment({
+    source_type: 'apartment',
+    source_id: apt.id,
+    client_name: apt.buyer_name || apt.name_or_address,
+    reference: apt.invoice_number,
+    amount_piasters: 0,
+    payment_date: apt.sale_date,
+    notes: '',
+  });
+
   readCache.invalidate('apartments');
   await recordAudit({
     action: 'delete',

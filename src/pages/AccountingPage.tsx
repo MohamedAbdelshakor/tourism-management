@@ -446,7 +446,18 @@ export const AccountingPage: React.FC = () => {
                       <tr key={p.id}>
                         <td className="px-4 py-2.5">{p.payment_date}</td>
                         <td className="px-4 py-2.5 font-medium">{p.client_name}</td>
-                        <td className="px-4 py-2.5 text-xs text-brand-muted">{p.reference || '—'}</td>
+                        <td className="px-4 py-2.5 text-xs text-brand-muted">
+                          <div>{p.reference || '—'}</div>
+                          {p.source_type && p.source_type !== 'manual' && (
+                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-brand-info text-brand-accent text-[10px] font-medium">
+                              {p.source_type === 'booking'
+                                ? 'تلقائي من الحجز'
+                                : p.source_type === 'visa'
+                                  ? 'تلقائي من التأشيرات'
+                                  : 'تلقائي من العقارات'}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-4 py-2.5 font-semibold">{formatCurrency(p.amount_minor, p.currency)}</td>
                         <td className="px-4 py-2.5 text-xs">{p.exchange_rate_on_receipt || '—'}</td>
                         <td className="px-4 py-2.5 text-xs">

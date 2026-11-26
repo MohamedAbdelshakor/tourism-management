@@ -4,7 +4,7 @@ import { ArrowRight, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getApartment, getApartmentStatuses, listUsers, saveApartment } from '../lib/db';
 import { formatEgp, fromPiasters, toPiasters } from '../lib/format';
-import { ApartmentRecord, UserProfile } from '../types/domain';
+import { ApartmentRecord, PAYMENT_METHODS, PaymentMethod, UserProfile } from '../types/domain';
 
 export const ApartmentFormPage: React.FC = () => {
   const { id } = useParams();
@@ -26,6 +26,7 @@ export const ApartmentFormPage: React.FC = () => {
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [paid, setPaid] = useState('0');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [saleDate, setSaleDate] = useState('');
   const [responsibleUid, setResponsibleUid] = useState('');
   const [notes, setNotes] = useState('');
@@ -50,6 +51,7 @@ export const ApartmentFormPage: React.FC = () => {
             setBuyerName(rec.buyer_name || '');
             setBuyerPhone(rec.buyer_phone || '');
             setPaid(fromPiasters(rec.paid_piasters));
+            setPaymentMethod(rec.payment_method ?? 'cash');
             setSaleDate(rec.sale_date || '');
             setResponsibleUid(rec.responsible_employee_uid || '');
             setNotes(rec.notes || '');
@@ -93,6 +95,7 @@ export const ApartmentFormPage: React.FC = () => {
           buyer_phone: buyerPhone.trim(),
           paid_piasters: paidPiasters,
           remaining_piasters: remainingPiasters,
+          payment_method: paymentMethod,
           sale_date: saleDate,
           responsible_employee_uid: responsibleUid || profile.uid,
           responsible_employee_name: emp?.name ?? profile.name,
@@ -185,6 +188,16 @@ export const ApartmentFormPage: React.FC = () => {
           <div>
             <label className="form-label">المدفوع (ج.م)</label>
             <input type="number" step="0.01" min="0" value={paid} onChange={(e) => setPaid(e.target.value)} className="form-input" />
+          </div>
+          <div>
+            <label className="form-label">طريقة الدفع (تُسجل تلقائياً في الحسابات)</label>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className="form-input">
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="bg-brand-info rounded-lg p-3 text-sm flex justify-between">
             <span className="text-brand-muted">المتبقي</span>

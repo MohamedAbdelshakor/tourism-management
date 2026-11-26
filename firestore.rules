@@ -107,7 +107,10 @@ service cloud.firestore {
 
     match /payments/{payId} {
       allow read: if canView('accounting');
-      allow create, update, delete: if canEdit('accounting');
+      allow create, update, delete: if canEdit('accounting')
+        || (payId.matches('auto_booking_.*') && (canEdit('domestic_tourism') || canEdit('outbound_tourism')))
+        || (payId.matches('auto_visa_.*') && canEdit('visas'))
+        || (payId.matches('auto_apartment_.*') && canEdit('real_estate'));
     }
 
     match /debts/{debtId} {

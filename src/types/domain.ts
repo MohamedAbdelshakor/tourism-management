@@ -111,6 +111,7 @@ export interface BookingRecord {
   total_piasters: number;
   paid_piasters: number;
   remaining_piasters: number;
+  payment_method?: PaymentMethod;
   responsible_employee_uid: string;
   responsible_employee_name: string;
   custom: Record<string, string | boolean>;
@@ -151,6 +152,7 @@ export interface VisaCaseRecord {
   visa_price_piasters: number;
   paid_piasters: number;
   remaining_piasters: number;
+  payment_method?: PaymentMethod;
   supplier_id: string | null;
   supplier_name: string;
   supplier_cost_piasters: number;
@@ -196,6 +198,7 @@ export interface ApartmentRecord {
   buyer_phone: string;
   paid_piasters: number;
   remaining_piasters: number;
+  payment_method?: PaymentMethod;
   sale_date: string;
   responsible_employee_uid: string;
   responsible_employee_name: string;
@@ -239,6 +242,8 @@ export interface PaymentRecord {
   payment_method: PaymentMethod;
   payment_date: string;
   notes: string;
+  source_type?: 'booking' | 'visa' | 'apartment' | 'manual';
+  source_id?: string;
   created_at: string;
 }
 
@@ -250,6 +255,7 @@ export interface DebtRecord {
   total_piasters: number;
   paid_piasters: number;
   remaining_piasters: number;
+  payment_method?: PaymentMethod;
   debt_date: string;
   created_at: string;
 }

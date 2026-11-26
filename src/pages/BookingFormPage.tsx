@@ -4,7 +4,7 @@ import { ArrowRight, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getBooking, listFieldDefinitions, listUsers, saveBooking } from '../lib/db';
 import { arabicWeekday, formatEgp, fromPiasters, maskNationalId, todayIsoDate, toPiasters } from '../lib/format';
-import { BookingRecord, DEPARTMENT_LABELS, FieldDefinition, UserProfile } from '../types/domain';
+import { BookingRecord, DEPARTMENT_LABELS, FieldDefinition, PAYMENT_METHODS, PaymentMethod, UserProfile } from '../types/domain';
 
 interface Props {
   department: 'domestic_tourism' | 'outbound_tourism';
@@ -48,6 +48,7 @@ export const BookingFormPage: React.FC<Props> = ({ department }) => {
   const [optionalServices, setOptionalServices] = useState('');
   const [total, setTotal] = useState('0');
   const [paid, setPaid] = useState('0');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [responsibleUid, setResponsibleUid] = useState('');
 
   const [customValues, setCustomValues] = useState<Record<string, string | boolean>>({});
@@ -88,6 +89,7 @@ export const BookingFormPage: React.FC<Props> = ({ department }) => {
             setOptionalServices(rec.optional_services || '');
             setTotal(fromPiasters(rec.total_piasters));
             setPaid(fromPiasters(rec.paid_piasters));
+            setPaymentMethod(rec.payment_method ?? 'cash');
             setResponsibleUid(rec.responsible_employee_uid || '');
             setCustomValues(rec.custom || {});
           }
@@ -183,6 +185,7 @@ export const BookingFormPage: React.FC<Props> = ({ department }) => {
           total_piasters: totalPiasters,
           paid_piasters: paidPiasters,
           remaining_piasters: remainingPiasters,
+          payment_method: paymentMethod,
           responsible_employee_uid: responsibleUid || profile.uid,
           responsible_employee_name: responsibleUser?.name ?? profile.name,
           custom: customValues,
@@ -530,6 +533,21 @@ export const BookingFormPage: React.FC<Props> = ({ department }) => {
               />
             </div>
           )}
+
+          <div>
+            <label className="form-label">طريقة الدفع (تُسجل تلقائياً في الحسابات)</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              className="form-input"
+            >
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {activeKeys.has('responsible_employee') && (
             <div>

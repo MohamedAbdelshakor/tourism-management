@@ -11,7 +11,7 @@ import {
   saveVisaCase,
 } from '../lib/db';
 import { formatEgp, fromPiasters, todayIsoDate, toPiasters } from '../lib/format';
-import { SupplierRecord, UserProfile, VisaCaseRecord, VisaDestination } from '../types/domain';
+import { PAYMENT_METHODS, PaymentMethod, SupplierRecord, UserProfile, VisaCaseRecord, VisaDestination } from '../types/domain';
 
 export const VisaFormPage: React.FC = () => {
   const { id } = useParams();
@@ -34,6 +34,7 @@ export const VisaFormPage: React.FC = () => {
   const [destValues, setDestValues] = useState<Record<string, string | boolean>>({});
   const [visaPrice, setVisaPrice] = useState('0');
   const [paid, setPaid] = useState('0');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [supplierId, setSupplierId] = useState('');
   const [supplierCost, setSupplierCost] = useState('0');
   const [supplierPaid, setSupplierPaid] = useState('0');
@@ -67,6 +68,7 @@ export const VisaFormPage: React.FC = () => {
             setDestValues(rec.destination_values || {});
             setVisaPrice(fromPiasters(rec.visa_price_piasters));
             setPaid(fromPiasters(rec.paid_piasters));
+            setPaymentMethod(rec.payment_method ?? 'cash');
             setSupplierId(rec.supplier_id || '');
             setSupplierCost(fromPiasters(rec.supplier_cost_piasters));
             setSupplierPaid(fromPiasters(rec.supplier_paid_piasters));
@@ -141,6 +143,7 @@ export const VisaFormPage: React.FC = () => {
           visa_price_piasters: pricePiasters,
           paid_piasters: paidPiasters,
           remaining_piasters: remainingPiasters,
+          payment_method: paymentMethod,
           supplier_id: supplierId || null,
           supplier_name: sup?.name ?? '',
           supplier_cost_piasters: supCostPiasters,
@@ -247,6 +250,16 @@ export const VisaFormPage: React.FC = () => {
           <div>
             <label className="form-label">المدفوع من العميل (ج.م)</label>
             <input type="number" step="0.01" min="0" required value={paid} onChange={(e) => setPaid(e.target.value)} className="form-input" />
+          </div>
+          <div>
+            <label className="form-label">طريقة الدفع (تُسجل تلقائياً في الحسابات)</label>
+            <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)} className="form-input">
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="bg-brand-info rounded-lg p-3 text-sm flex justify-between">
             <span className="text-brand-muted">المتبقي على العميل</span>
