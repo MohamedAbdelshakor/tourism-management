@@ -17,6 +17,7 @@ import {
   ActivityLogRecord,
   ApartmentClientRecord,
   ApartmentRecord,
+  AttendanceRecord,
   AuditLogRecord,
   BookingRecord,
   CommissionRecord,
@@ -201,6 +202,56 @@ export async function listActivityLogs(): Promise<ActivityLogRecord[]> {
     const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<ActivityLogRecord, 'id'>) }));
     return sortDescBy(rows, 'occurred_at').slice(0, 300);
   });
+}
+
+// ============================================================
+// Employee Attendance (حضور وانصراف)
+// ============================================================
+
+export async function listAttendance(): Promise<AttendanceRecord[]> {
+  return readCache.remember('attendance', 'all', async () => {
+    const snap = await getDocs(collection(db, 'attendance'));
+    const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<AttendanceRecord, 'id'>) }));
+    return sortDescBy(rows, 'check_in_at');
+  });
+}
+
+export async function getTodayAttendanceForUser(uid: string, date: string): Promise<AttendanceRecord | null> {
+  return readCache.remember('attendance', `user_${uid}_${date}`, async () => {
+    const q = query(collection(db, 'attendance'), where('user_uid', '==', uid));
+    const snap = await getDocs(q);
+    const todayRows = snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<AttendanceRecord, 'id'>) }))
+      .filter((r) => r.date === date)
+      .sort((a, b) => b.check_in_at.localeCompare(a.check_in_at));
+    return todayRows[0] ?? null;
+  });
+}
+
+export async function checkInEmployee(actor: ActorInfo, date: string): Promise<AttendanceRecord> {
+  const payload: Omit<AttendanceRecord, 'id'> = {
+    user_uid: actor.uid,
+    user_name: actor.name,
+    date,
+    check_in_at: nowIso(),
+    check_out_at: null,
+    duration_minutes: null,
+  };
+  const ref = await addDoc(collection(db, 'attendance'), payload);
+  readCache.invalidate('attendance');
+  return { id: ref.id, ...payload };
+}
+
+export async function checkOutEmployee(record: AttendanceRecord): Promise<AttendanceRecord> {
+  const checkOutAt = nowIso();
+  const diffMs = Math.max(0, new Date(checkOutAt).getTime() - new Date(record.check_in_at).getTime());
+  const durationMinutes = Math.round(diffMs / 60000);
+  await updateDoc(doc(db, 'attendance', record.id), {
+    check_out_at: checkOutAt,
+    duration_minutes: durationMinutes,
+  });
+  readCache.invalidate('attendance');
+  return { ...record, check_out_at: checkOutAt, duration_minutes: durationMinutes };
 }
 
 // ============================================================

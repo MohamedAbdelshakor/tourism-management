@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   MapPin,
@@ -12,9 +12,13 @@ import {
   LogOut,
   Menu,
   X,
+  Clock,
+  CheckCircle2,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { DEPARTMENTS, DepartmentKey } from '../types/domain';
+import { checkInEmployee, checkOutEmployee, getTodayAttendanceForUser } from '../lib/db';
+import { todayIsoDate } from '../lib/format';
+import { AttendanceRecord, DEPARTMENTS, DepartmentKey } from '../types/domain';
 
 const DEPT_ICONS: Record<DepartmentKey, React.FC<{ className?: string }>> = {
   domestic_tourism: MapPin,
@@ -31,8 +35,45 @@ export const Layout: React.FC = () => {
   const { profile, canView, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [todayAtt, setTodayAtt] = useState<AttendanceRecord | null>(null);
+  const [attBusy, setAttBusy] = useState(false);
 
   const visibleDepartments = DEPARTMENTS.filter((d) => canView(d.key));
+
+  useEffect(() => {
+    if (!profile) return;
+    getTodayAttendanceForUser(profile.uid, todayIsoDate())
+      .then(setTodayAtt)
+      .catch(() => {});
+  }, [profile]);
+
+  const handleCheckIn = async () => {
+    if (!profile || attBusy) return;
+    setAttBusy(true);
+    try {
+      const rec = await checkInEmployee({ uid: profile.uid, name: profile.name }, todayIsoDate());
+      setTodayAtt(rec);
+    } finally {
+      setAttBusy(false);
+    }
+  };
+
+  const handleCheckOut = async () => {
+    if (!todayAtt || attBusy) return;
+    if (!window.confirm('هل تريد تسجيل الانصراف (نهاية العمل) الآن؟')) return;
+    setAttBusy(true);
+    try {
+      const updated = await checkOutEmployee(todayAtt);
+      setTodayAtt(updated);
+    } finally {
+      setAttBusy(false);
+    }
+  };
+
+  const formatTimeShort = (iso: string | null) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -157,7 +198,38 @@ export const Layout: React.FC = () => {
               {profile?.role === 'admin' ? 'مدير النظام' : profile?.name || 'موظف'}
             </span>
           </div>
-          <div className="hidden sm:block text-xs text-brand-muted shrink-0">العملة الافتراضية: الجنيه المصري (ج.م)</div>
+          <div className="flex items-center gap-2 shrink-0">
+            {!todayAtt || todayAtt.check_out_at ? (
+              <button
+                type="button"
+                disabled={attBusy}
+                onClick={handleCheckIn}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-success-bg text-brand-success border border-brand-success/25 px-3 py-1.5 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>{todayAtt?.check_out_at ? 'بداية وردية جديدة' : 'تسجيل حضور'}</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="hidden md:inline-flex items-center gap-1 text-xs text-brand-success font-medium bg-brand-success-bg px-2.5 py-1 rounded-lg">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>حضور: {formatTimeShort(todayAtt.check_in_at)}</span>
+                </span>
+                <button
+                  type="button"
+                  disabled={attBusy}
+                  onClick={handleCheckOut}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 text-xs font-bold hover:bg-red-100 transition-colors disabled:opacity-50"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>تسجيل انصراف</span>
+                </button>
+              </div>
+            )}
+            <div className="hidden lg:block text-xs text-brand-muted border-r border-brand-border pr-2.5">
+              الجنيه المصري (ج.م)
+            </div>
+          </div>
         </header>
 
         <main className="flex-1 p-3 sm:p-4 lg:p-6 max-w-7xl w-full mx-auto">

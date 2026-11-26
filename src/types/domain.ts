@@ -297,6 +297,16 @@ export interface ActivityLogRecord {
   occurred_at: string;
 }
 
+export interface AttendanceRecord {
+  id: string;
+  user_uid: string;
+  user_name: string;
+  date: string;
+  check_in_at: string;
+  check_out_at: string | null;
+  duration_minutes: number | null;
+}
+
 export interface PrintSettings {
   company_name: string;
   contact_details: string;
