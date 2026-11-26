@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { CollectPaymentModal, CollectTarget } from '../components/CollectPaymentModal';
 import {
   addCommission,
   addDebt,
   addExpense,
   addPayment,
+  collectCasePayment,
   deleteCommission,
   deleteDebt,
   deleteExpense,
@@ -48,6 +50,8 @@ export const AccountingPage: React.FC = () => {
   const [tab, setTab] = useState<Tab>('reports');
   const [period, setPeriod] = useState<Period>('monthly');
   const [loading, setLoading] = useState(true);
+  const [collectTarget, setCollectTarget] = useState<CollectTarget | null>(null);
+  const [onlyRemaining, setOnlyRemaining] = useState(false);
 
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [debts, setDebts] = useState<DebtRecord[]>([]);
@@ -555,11 +559,13 @@ export const AccountingPage: React.FC = () => {
                           <div>{p.reference || '—'}</div>
                           {p.source_type && p.source_type !== 'manual' && (
                             <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded bg-brand-info text-brand-accent text-[10px] font-medium">
-                              {p.source_type === 'booking'
-                                ? 'تلقائي من الحجز'
-                                : p.source_type === 'visa'
-                                  ? 'تلقائي من التأشيرات'
-                                  : 'تلقائي من العقارات'}
+                              {p.is_installment
+                                ? 'تحصيل متبقي'
+                                : p.source_type === 'booking'
+                                  ? 'تلقائي من الحجز'
+                                  : p.source_type === 'visa'
+                                    ? 'تلقائي من التأشيرات'
+                                    : 'تلقائي من العقارات'}
                             </span>
                           )}
                         </td>
@@ -853,57 +859,181 @@ export const AccountingPage: React.FC = () => {
           )}
 
           {tab === 'balances' && (
-            <div className="card overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="table-head">
-                    <th className="px-4 py-3 text-right">القسم</th>
-                    <th className="px-4 py-3 text-right">رقم الإيصال / الفاتورة</th>
-                    <th className="px-4 py-3 text-right">العميل</th>
-                    <th className="px-4 py-3 text-right">الإجمالي</th>
-                    <th className="px-4 py-3 text-right">المدفوع</th>
-                    <th className="px-4 py-3 text-right">المتبقي</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-brand-border">
-                  {bookings.map((b) => (
-                    <tr key={`b-${b.id}`}>
-                      <td className="px-4 py-2.5 text-xs">{b.department === 'domestic_tourism' ? 'سياحة داخلية' : 'سياحة خارجية'}</td>
-                      <td className="px-4 py-2.5 font-semibold text-brand-accent">{b.receipt_number}</td>
-                      <td className="px-4 py-2.5">{b.client_name}</td>
-                      <td className="px-4 py-2.5">{formatEgp(b.total_piasters)}</td>
-                      <td className="px-4 py-2.5 text-brand-success">{formatEgp(b.paid_piasters)}</td>
-                      <td className="px-4 py-2.5 font-semibold">{formatEgp(b.remaining_piasters)}</td>
-                    </tr>
-                  ))}
-                  {visaCases.map((v) => (
-                    <tr key={`v-${v.id}`}>
-                      <td className="px-4 py-2.5 text-xs">تأشيرات</td>
-                      <td className="px-4 py-2.5 font-semibold text-brand-accent">{v.invoice_number}</td>
-                      <td className="px-4 py-2.5">{v.client_name}</td>
-                      <td className="px-4 py-2.5">{formatEgp(v.visa_price_piasters)}</td>
-                      <td className="px-4 py-2.5 text-brand-success">{formatEgp(v.paid_piasters)}</td>
-                      <td className="px-4 py-2.5 font-semibold">{formatEgp(v.remaining_piasters)}</td>
-                    </tr>
-                  ))}
-                  {apartments
-                    .filter((a) => a.buyer_name)
-                    .map((a) => (
-                      <tr key={`a-${a.id}`}>
-                        <td className="px-4 py-2.5 text-xs">عقارات</td>
-                        <td className="px-4 py-2.5 font-semibold text-brand-accent">{a.invoice_number || '—'}</td>
-                        <td className="px-4 py-2.5">{a.buyer_name}</td>
-                        <td className="px-4 py-2.5">{formatEgp(a.price_piasters)}</td>
-                        <td className="px-4 py-2.5 text-brand-success">{formatEgp(a.paid_piasters)}</td>
-                        <td className="px-4 py-2.5 font-semibold">{formatEgp(a.remaining_piasters)}</td>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs text-brand-muted">
+                  اضغط على زر «تحصيل» بجانب أي عميل لتسجيل دفعة جديدة بطريقتها وتاريخها وتحديث المتبقي والخزنة تلقائياً.
+                </div>
+                <label className="flex items-center gap-2 text-xs font-medium text-brand-ink cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={onlyRemaining}
+                    onChange={(e) => setOnlyRemaining(e.target.checked)}
+                  />
+                  <span>عرض من عليهم متبقي فقط</span>
+                </label>
+              </div>
+              <div className="card overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="table-head">
+                        <th className="px-4 py-3 text-right">القسم</th>
+                        <th className="px-4 py-3 text-right">رقم الإيصال / الفاتورة</th>
+                        <th className="px-4 py-3 text-right">العميل</th>
+                        <th className="px-4 py-3 text-right">الإجمالي</th>
+                        <th className="px-4 py-3 text-right">المدفوع</th>
+                        <th className="px-4 py-3 text-right">المتبقي</th>
+                        {editable && <th className="px-4 py-3 text-center">تحصيل</th>}
                       </tr>
-                    ))}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="divide-y divide-brand-border">
+                      {bookings
+                        .filter((b) => !onlyRemaining || (b.remaining_piasters ?? 0) > 0)
+                        .map((b) => (
+                          <tr key={`b-${b.id}`} className="hover:bg-brand-page/60">
+                            <td className="px-4 py-2.5 text-xs">{b.department === 'domestic_tourism' ? 'سياحة داخلية' : 'سياحة خارجية'}</td>
+                            <td className="px-4 py-2.5 font-semibold text-brand-accent">{b.receipt_number}</td>
+                            <td className="px-4 py-2.5 font-medium">{b.client_name}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap">{formatEgp(b.total_piasters)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-brand-success">{formatEgp(b.paid_piasters)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap font-semibold text-brand-accent">
+                              {formatEgp(b.remaining_piasters)}
+                            </td>
+                            {editable && (
+                              <td className="px-4 py-2.5 text-center">
+                                {(b.remaining_piasters ?? 0) > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCollectTarget({
+                                        kind: 'booking',
+                                        id: b.id,
+                                        clientName: b.client_name,
+                                        reference: b.receipt_number,
+                                        remainingPiasters: b.remaining_piasters,
+                                      })
+                                    }
+                                    className="btn-primary text-xs py-1 px-3"
+                                  >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                    <span>تحصيل</span>
+                                  </button>
+                                ) : (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-brand-success-bg text-brand-success font-medium">
+                                    خالص
+                                  </span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      {visaCases
+                        .filter((v) => !onlyRemaining || (v.remaining_piasters ?? 0) > 0)
+                        .map((v) => (
+                          <tr key={`v-${v.id}`} className="hover:bg-brand-page/60">
+                            <td className="px-4 py-2.5 text-xs">تأشيرات</td>
+                            <td className="px-4 py-2.5 font-semibold text-brand-accent">{v.invoice_number}</td>
+                            <td className="px-4 py-2.5 font-medium">{v.client_name}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap">{formatEgp(v.visa_price_piasters)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-brand-success">{formatEgp(v.paid_piasters)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap font-semibold text-brand-accent">
+                              {formatEgp(v.remaining_piasters)}
+                            </td>
+                            {editable && (
+                              <td className="px-4 py-2.5 text-center">
+                                {(v.remaining_piasters ?? 0) > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCollectTarget({
+                                        kind: 'visa',
+                                        id: v.id,
+                                        clientName: v.client_name,
+                                        reference: v.invoice_number,
+                                        remainingPiasters: v.remaining_piasters,
+                                      })
+                                    }
+                                    className="btn-primary text-xs py-1 px-3"
+                                  >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                    <span>تحصيل</span>
+                                  </button>
+                                ) : (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-brand-success-bg text-brand-success font-medium">
+                                    خالص
+                                  </span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      {apartments
+                        .filter((a) => a.buyer_name && (!onlyRemaining || (a.remaining_piasters ?? 0) > 0))
+                        .map((a) => (
+                          <tr key={`a-${a.id}`} className="hover:bg-brand-page/60">
+                            <td className="px-4 py-2.5 text-xs">عقارات</td>
+                            <td className="px-4 py-2.5 font-semibold text-brand-accent">{a.invoice_number || '—'}</td>
+                            <td className="px-4 py-2.5 font-medium">{a.buyer_name}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap">{formatEgp(a.price_piasters)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap text-brand-success">{formatEgp(a.paid_piasters)}</td>
+                            <td className="px-4 py-2.5 whitespace-nowrap font-semibold text-brand-accent">
+                              {formatEgp(a.remaining_piasters)}
+                            </td>
+                            {editable && (
+                              <td className="px-4 py-2.5 text-center">
+                                {(a.remaining_piasters ?? 0) > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setCollectTarget({
+                                        kind: 'apartment',
+                                        id: a.id,
+                                        clientName: a.buyer_name,
+                                        reference: a.invoice_number || a.name_or_address,
+                                        remainingPiasters: a.remaining_piasters,
+                                      })
+                                    }
+                                    className="btn-primary text-xs py-1 px-3"
+                                  >
+                                    <Wallet className="w-3.5 h-3.5" />
+                                    <span>تحصيل</span>
+                                  </button>
+                                ) : (
+                                  <span className="inline-block px-2 py-0.5 rounded-full text-[11px] bg-brand-success-bg text-brand-success font-medium">
+                                    خالص
+                                  </span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
         </>
       )}
+
+      <CollectPaymentModal
+        target={collectTarget}
+        onClose={() => setCollectTarget(null)}
+        onConfirm={async ({ amountPiasters, paymentMethod, paymentDate, notes }) => {
+          if (!profile || !collectTarget) return;
+          await collectCasePayment({
+            kind: collectTarget.kind,
+            id: collectTarget.id,
+            amount_piasters: amountPiasters,
+            payment_method: paymentMethod,
+            payment_date: paymentDate,
+            notes,
+            actor: { uid: profile.uid, name: profile.name },
+          });
+          await load();
+        }}
+      />
     </div>
   );
 };

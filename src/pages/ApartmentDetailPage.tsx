@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Pencil, Printer, Trash2 } from 'lucide-react';
+import { ArrowRight, Pencil, Printer, Trash2, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { deleteApartment, getApartment } from '../lib/db';
+import { CollectPaymentModal } from '../components/CollectPaymentModal';
+import { collectCasePayment, deleteApartment, getApartment } from '../lib/db';
 import { formatEgp } from '../lib/format';
 import { ApartmentRecord } from '../types/domain';
 
@@ -14,12 +15,20 @@ export const ApartmentDetailPage: React.FC = () => {
 
   const [apt, setApt] = useState<ApartmentRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [collectOpen, setCollectOpen] = useState(false);
+
+  const reload = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      setApt(await getApartment(id));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!id) return;
-    getApartment(id)
-      .then(setApt)
-      .finally(() => setLoading(false));
+    reload();
   }, [id]);
 
   const handleDelete = async () => {
@@ -56,7 +65,13 @@ export const ApartmentDetailPage: React.FC = () => {
           </Link>
           {editable && (
             <>
-              <Link to={`/real-estate/apartments/${apt.id}/edit`} className="btn-primary text-xs">
+              {(apt.remaining_piasters ?? 0) > 0 && (
+                <button type="button" onClick={() => setCollectOpen(true)} className="btn-primary text-xs">
+                  <Wallet className="w-4 h-4" />
+                  <span>تحصيل متبقي</span>
+                </button>
+              )}
+              <Link to={`/real-estate/apartments/${apt.id}/edit`} className="btn-secondary text-xs">
                 <Pencil className="w-4 h-4" />
                 <span>تعديل</span>
               </Link>
@@ -105,6 +120,34 @@ export const ApartmentDetailPage: React.FC = () => {
       </div>
 
       {apt.notes && <div className="note-box text-sm">{apt.notes}</div>}
+
+      <CollectPaymentModal
+        target={
+          collectOpen
+            ? {
+                kind: 'apartment',
+                id: apt.id,
+                clientName: apt.buyer_name || apt.name_or_address,
+                reference: apt.invoice_number || apt.name_or_address,
+                remainingPiasters: apt.remaining_piasters,
+              }
+            : null
+        }
+        onClose={() => setCollectOpen(false)}
+        onConfirm={async ({ amountPiasters, paymentMethod, paymentDate, notes }) => {
+          if (!profile) return;
+          await collectCasePayment({
+            kind: 'apartment',
+            id: apt.id,
+            amount_piasters: amountPiasters,
+            payment_method: paymentMethod,
+            payment_date: paymentDate,
+            notes,
+            actor: { uid: profile.uid, name: profile.name },
+          });
+          await reload();
+        }}
+      />
     </div>
   );
 };

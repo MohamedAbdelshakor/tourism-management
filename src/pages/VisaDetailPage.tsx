@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Pencil, Plus, Printer, Trash2 } from 'lucide-react';
+import { ArrowRight, Pencil, Plus, Printer, Trash2, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { addExpense, deleteExpense, deleteVisaCase, getVisaCase, listExpenses, saveVisaCase } from '../lib/db';
+import { CollectPaymentModal } from '../components/CollectPaymentModal';
+import { addExpense, collectCasePayment, deleteExpense, deleteVisaCase, getVisaCase, listExpenses, saveVisaCase } from '../lib/db';
 import { formatEgp, todayIsoDate, toPiasters } from '../lib/format';
 import { ExpenseRecord, VisaCaseRecord } from '../types/domain';
 
@@ -19,6 +20,7 @@ export const VisaDetailPage: React.FC = () => {
   const [expDesc, setExpDesc] = useState('');
   const [expAmount, setExpAmount] = useState('');
   const [expDate, setExpDate] = useState(todayIsoDate());
+  const [collectOpen, setCollectOpen] = useState(false);
 
   const load = async () => {
     if (!id) return;
@@ -109,7 +111,13 @@ export const VisaDetailPage: React.FC = () => {
           </Link>
           {editable && (
             <>
-              <Link to={`/visas/${vc.id}/edit`} className="btn-primary text-xs">
+              {(vc.remaining_piasters ?? 0) > 0 && (
+                <button type="button" onClick={() => setCollectOpen(true)} className="btn-primary text-xs">
+                  <Wallet className="w-4 h-4" />
+                  <span>تحصيل متبقي</span>
+                </button>
+              )}
+              <Link to={`/visas/${vc.id}/edit`} className="btn-secondary text-xs">
                 <Pencil className="w-4 h-4" />
                 <span>تعديل</span>
               </Link>
@@ -258,6 +266,33 @@ export const VisaDetailPage: React.FC = () => {
           </tbody>
         </table>
       </div>
+      <CollectPaymentModal
+        target={
+          collectOpen
+            ? {
+                kind: 'visa',
+                id: vc.id,
+                clientName: vc.client_name,
+                reference: vc.invoice_number,
+                remainingPiasters: vc.remaining_piasters,
+              }
+            : null
+        }
+        onClose={() => setCollectOpen(false)}
+        onConfirm={async ({ amountPiasters, paymentMethod, paymentDate, notes }) => {
+          if (!profile) return;
+          await collectCasePayment({
+            kind: 'visa',
+            id: vc.id,
+            amount_piasters: amountPiasters,
+            payment_method: paymentMethod,
+            payment_date: paymentDate,
+            notes,
+            actor: { uid: profile.uid, name: profile.name },
+          });
+          await load();
+        }}
+      />
     </div>
   );
 };

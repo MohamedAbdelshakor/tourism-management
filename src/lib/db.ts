@@ -387,12 +387,13 @@ export async function saveBooking(
     sensitiveChanged.push('national_id');
   }
 
+  const installmentsPaid = options.before?.installments_paid_piasters ?? 0;
   await syncAutoPayment({
     source_type: 'booking',
     source_id: id,
     client_name: booking.client_name,
     reference: receiptNumber,
-    amount_piasters: booking.paid_piasters,
+    amount_piasters: Math.max(0, booking.paid_piasters - installmentsPaid),
     payment_method: booking.payment_method,
     payment_date: booking.booking_date,
     notes: booking.department === 'domestic_tourism' ? 'تحصيل تلقائي — سياحة داخلية' : 'تحصيل تلقائي — سياحة خارجية',
@@ -552,12 +553,13 @@ export async function saveVisaCase(
     const ref = await addDoc(collection(db, 'visa_cases'), payload);
     id = ref.id;
   }
+  const installmentsPaid = options.before?.installments_paid_piasters ?? 0;
   await syncAutoPayment({
     source_type: 'visa',
     source_id: id,
     client_name: vc.client_name,
     reference: invoiceNumber,
-    amount_piasters: vc.paid_piasters,
+    amount_piasters: Math.max(0, vc.paid_piasters - installmentsPaid),
     payment_method: vc.payment_method,
     payment_date: vc.case_date,
     notes: `تحصيل تلقائي — تأشيرات (${vc.destination_name || 'عام'})`,
@@ -747,12 +749,13 @@ export async function saveApartment(
     const ref = await addDoc(collection(db, 'apartments'), payload);
     id = ref.id;
   }
+  const installmentsPaid = options.before?.installments_paid_piasters ?? 0;
   await syncAutoPayment({
     source_type: 'apartment',
     source_id: id,
     client_name: apt.buyer_name || apt.name_or_address,
     reference: invoiceNumber || apt.name_or_address,
-    amount_piasters: apt.paid_piasters,
+    amount_piasters: Math.max(0, apt.paid_piasters - installmentsPaid),
     payment_method: apt.payment_method,
     payment_date: apt.sale_date || nowIso().slice(0, 10),
     notes: `تحصيل تلقائي — عقارات (${apt.name_or_address})`,
@@ -899,8 +902,161 @@ export async function addPayment(
   return ref.id;
 }
 
+export async function collectCasePayment(params: {
+  kind: 'booking' | 'visa' | 'apartment';
+  id: string;
+  amount_piasters: number;
+  payment_method: PaymentMethod;
+  payment_date: string;
+  notes: string;
+  actor: ActorInfo;
+}): Promise<void> {
+  const colName =
+    params.kind === 'booking' ? 'bookings' : params.kind === 'visa' ? 'visa_cases' : 'apartments';
+  const caseRef = doc(db, colName, params.id);
+  const caseSnap = await getDoc(caseRef);
+  if (!caseSnap.exists()) throw new Error('Case not found');
+
+  const data = caseSnap.data() as Record<string, unknown>;
+  const totalPiasters = Number(
+    params.kind === 'booking'
+      ? data.total_piasters ?? 0
+      : params.kind === 'visa'
+        ? data.visa_price_piasters ?? 0
+        : data.price_piasters ?? 0,
+  );
+  const prevPaid = Number(data.paid_piasters ?? 0);
+  const prevInstallments = Number(data.installments_paid_piasters ?? 0);
+  const prevRemaining = Math.max(0, totalPiasters - prevPaid);
+
+  if (params.amount_piasters <= 0 || params.amount_piasters > prevRemaining) {
+    throw new Error('Invalid collection amount');
+  }
+
+  const clientName = String(
+    params.kind === 'apartment'
+      ? data.buyer_name || data.name_or_address || '—'
+      : data.client_name || '—',
+  );
+  const reference = String(
+    params.kind === 'booking'
+      ? data.receipt_number || ''
+      : params.kind === 'visa'
+        ? data.invoice_number || ''
+        : data.invoice_number || data.name_or_address || '',
+  );
+
+  // If this was a legacy record with initial paid > 0 and no auto_* payment doc yet, materialize it first
+  const initialPaid = Math.max(0, prevPaid - prevInstallments);
+  if (initialPaid > 0) {
+    const autoRef = doc(db, 'payments', `auto_${params.kind}_${params.id}`);
+    const autoSnap = await getDoc(autoRef);
+    if (!autoSnap.exists()) {
+      await setDoc(autoRef, {
+        client_name: clientName,
+        reference,
+        amount_minor: initialPaid,
+        currency: 'EGP',
+        exchange_rate_on_receipt: null,
+        payment_method: (data.payment_method as PaymentMethod) ?? 'cash',
+        payment_date: String(
+          params.kind === 'booking'
+            ? data.booking_date || nowIso().slice(0, 10)
+            : params.kind === 'visa'
+              ? data.case_date || nowIso().slice(0, 10)
+              : data.sale_date || nowIso().slice(0, 10),
+        ),
+        notes: 'دفعة أولية مسجلة مع الحالة',
+        source_type: params.kind,
+        source_id: params.id,
+        created_at: nowIso(),
+      });
+    }
+  }
+
+  const newPaid = prevPaid + params.amount_piasters;
+  const newRemaining = Math.max(0, totalPiasters - newPaid);
+  const newInstallments = prevInstallments + params.amount_piasters;
+
+  // 1. Add independent installment payment record
+  const payRef = await addDoc(collection(db, 'payments'), {
+    client_name: clientName,
+    reference,
+    amount_minor: params.amount_piasters,
+    currency: 'EGP',
+    exchange_rate_on_receipt: null,
+    payment_method: params.payment_method,
+    payment_date: params.payment_date || nowIso().slice(0, 10),
+    notes: params.notes || 'تحصيل متبقي',
+    source_type: params.kind,
+    source_id: params.id,
+    is_installment: true,
+    created_at: nowIso(),
+  });
+
+  // 2. Update case paid / remaining / installments_paid_piasters
+  await updateDoc(caseRef, {
+    paid_piasters: newPaid,
+    remaining_piasters: newRemaining,
+    installments_paid_piasters: newInstallments,
+    updated_at: nowIso(),
+  });
+
+  readCache.invalidate('payments');
+  readCache.invalidate(colName);
+
+  await recordAudit({
+    action: 'create',
+    entity_type: 'payment',
+    entity_id: payRef.id,
+    department: 'accounting',
+    actor: params.actor,
+    before: { paid_piasters: prevPaid, remaining_piasters: prevRemaining },
+    after: {
+      source_type: params.kind,
+      source_id: params.id,
+      collected_piasters: params.amount_piasters,
+      payment_method: params.payment_method,
+      paid_piasters: newPaid,
+      remaining_piasters: newRemaining,
+    },
+  });
+}
+
 export async function deletePayment(payment: PaymentRecord, actor: ActorInfo): Promise<void> {
   await deleteDoc(doc(db, 'payments', payment.id));
+
+  // If this was an installment payment, reverse it on the linked case
+  if (payment.is_installment && payment.source_type && payment.source_type !== 'manual' && payment.source_id) {
+    const colName =
+      payment.source_type === 'booking'
+        ? 'bookings'
+        : payment.source_type === 'visa'
+          ? 'visa_cases'
+          : 'apartments';
+    const caseRef = doc(db, colName, payment.source_id);
+    const snap = await getDoc(caseRef);
+    if (snap.exists()) {
+      const data = snap.data() as Record<string, unknown>;
+      const total = Number(
+        payment.source_type === 'booking'
+          ? data.total_piasters ?? 0
+          : payment.source_type === 'visa'
+            ? data.visa_price_piasters ?? 0
+            : data.price_piasters ?? 0,
+      );
+      const nextPaid = Math.max(0, Number(data.paid_piasters ?? 0) - payment.amount_minor);
+      const nextInst = Math.max(0, Number(data.installments_paid_piasters ?? 0) - payment.amount_minor);
+      await updateDoc(caseRef, {
+        paid_piasters: nextPaid,
+        remaining_piasters: Math.max(0, total - nextPaid),
+        installments_paid_piasters: nextInst,
+        updated_at: nowIso(),
+      });
+      readCache.invalidate(colName);
+    }
+  }
+
   readCache.invalidate('payments');
   await recordAudit({
     action: 'delete',

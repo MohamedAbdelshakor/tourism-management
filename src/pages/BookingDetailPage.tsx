@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Eye, EyeOff, Pencil, Printer, Trash2 } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Pencil, Printer, Trash2, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { deleteBooking, getBooking, revealBookingNationalId } from '../lib/db';
+import { CollectPaymentModal } from '../components/CollectPaymentModal';
+import { collectCasePayment, deleteBooking, getBooking, revealBookingNationalId } from '../lib/db';
 import { formatEgp } from '../lib/format';
 import { BookingRecord, DEPARTMENT_LABELS } from '../types/domain';
 
@@ -20,19 +21,21 @@ export const BookingDetailPage: React.FC<Props> = ({ department }) => {
   const [loading, setLoading] = useState(true);
   const [revealedNid, setRevealedNid] = useState<string | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [collectOpen, setCollectOpen] = useState(false);
+
+  const reload = async () => {
+    if (!id) return;
+    setLoading(true);
+    try {
+      const rec = await getBooking(id);
+      setBooking(rec);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      if (!id) return;
-      setLoading(true);
-      try {
-        const rec = await getBooking(id);
-        setBooking(rec);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    reload();
   }, [id]);
 
   const handleReveal = async () => {
@@ -96,7 +99,13 @@ export const BookingDetailPage: React.FC<Props> = ({ department }) => {
           </Link>
           {editable && (
             <>
-              <Link to={`${basePath}/${booking.id}/edit`} className="btn-primary text-xs">
+              {(booking.remaining_piasters ?? 0) > 0 && (
+                <button type="button" onClick={() => setCollectOpen(true)} className="btn-primary text-xs">
+                  <Wallet className="w-4 h-4" />
+                  <span>تحصيل متبقي</span>
+                </button>
+              )}
+              <Link to={`${basePath}/${booking.id}/edit`} className="btn-secondary text-xs">
                 <Pencil className="w-4 h-4" />
                 <span>تعديل</span>
               </Link>
@@ -196,6 +205,33 @@ export const BookingDetailPage: React.FC<Props> = ({ department }) => {
           </div>
         </div>
       )}
+      <CollectPaymentModal
+        target={
+          collectOpen
+            ? {
+                kind: 'booking',
+                id: booking.id,
+                clientName: booking.client_name,
+                reference: booking.receipt_number,
+                remainingPiasters: booking.remaining_piasters,
+              }
+            : null
+        }
+        onClose={() => setCollectOpen(false)}
+        onConfirm={async ({ amountPiasters, paymentMethod, paymentDate, notes }) => {
+          if (!profile) return;
+          await collectCasePayment({
+            kind: 'booking',
+            id: booking.id,
+            amount_piasters: amountPiasters,
+            payment_method: paymentMethod,
+            payment_date: paymentDate,
+            notes,
+            actor: { uid: profile.uid, name: profile.name },
+          });
+          await reload();
+        }}
+      />
     </div>
   );
 };

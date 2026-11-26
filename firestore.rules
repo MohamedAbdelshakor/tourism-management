@@ -56,7 +56,7 @@ service cloud.firestore {
         || canView('employee_activity')
       );
       allow create: if isActive() && canEdit(request.resource.data.department);
-      allow update: if isActive() && canEdit(resource.data.department) && request.resource.data.department == resource.data.department;
+      allow update: if isActive() && (canEdit(resource.data.department) || canEdit('accounting')) && request.resource.data.department == resource.data.department;
       allow delete: if isActive() && canEdit(resource.data.department);
 
       match /private/{docId} {
@@ -77,7 +77,8 @@ service cloud.firestore {
 
     match /visa_cases/{caseId} {
       allow read: if canView('visas') || canView('accounting') || canView('employee_activity');
-      allow create, update, delete: if canEdit('visas');
+      allow create, delete: if canEdit('visas');
+      allow update: if canEdit('visas') || canEdit('accounting');
     }
 
     match /suppliers/{supplierId} {
@@ -92,7 +93,8 @@ service cloud.firestore {
 
     match /apartments/{aptId} {
       allow read: if canView('real_estate') || canView('accounting') || canView('employee_activity');
-      allow create, update, delete: if canEdit('real_estate');
+      allow create, delete: if canEdit('real_estate');
+      allow update: if canEdit('real_estate') || canEdit('accounting');
     }
 
     match /apartment_clients/{clientId} {
@@ -107,7 +109,14 @@ service cloud.firestore {
 
     match /payments/{payId} {
       allow read: if canView('accounting');
-      allow create, update, delete: if canEdit('accounting')
+      allow create: if canEdit('accounting')
+        || (payId.matches('auto_booking_.*') && (canEdit('domestic_tourism') || canEdit('outbound_tourism')))
+        || (payId.matches('auto_visa_.*') && canEdit('visas'))
+        || (payId.matches('auto_apartment_.*') && canEdit('real_estate'))
+        || (request.resource.data.is_installment == true && (
+          canEdit('domestic_tourism') || canEdit('outbound_tourism') || canEdit('visas') || canEdit('real_estate')
+        ));
+      allow update, delete: if canEdit('accounting')
         || (payId.matches('auto_booking_.*') && (canEdit('domestic_tourism') || canEdit('outbound_tourism')))
         || (payId.matches('auto_visa_.*') && canEdit('visas'))
         || (payId.matches('auto_apartment_.*') && canEdit('real_estate'));
