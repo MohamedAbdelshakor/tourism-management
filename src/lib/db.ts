@@ -904,9 +904,9 @@ export async function deleteCommission(comm: CommissionRecord, actor: ActorInfo)
 // ============================================================
 
 const DEFAULT_PRINT_SETTINGS: PrintSettings = {
-  company_name: 'شركة السياحة وإدارة الرحلات',
+  company_name: 'Red Star Travel — ريد ستار للسياحة',
   contact_details: 'القاهرة، جمهورية مصر العربية | هاتف: 01000000000',
-  watermark_text: 'نسخة رسمية',
+  watermark_text: '',
   terms_and_conditions:
     '1. يرجى مراجعة جميع البيانات الموضحة في هذا الإيصال فور الاستلام.\n2. تطبق سياسة الإلغاء والتعديل الخاصة بالفنادق وشركات الطيران والجهات المعنية.\n3. لا يُعتد بأي تعديل إلا بموجب إيصال رسمي معتمد من الشركة.',
 };

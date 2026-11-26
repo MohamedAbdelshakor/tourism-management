@@ -31,11 +31,16 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-page px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-brand-page px-4 py-8">
       <div className="w-full max-w-md card overflow-hidden">
-        <div className="bg-brand-sidebar text-white px-6 py-6">
-          <div className="text-xs text-brand-sidebar-label">نظام الإدارة المتكامل</div>
-          <h1 className="text-xl font-bold mt-1">تسجيل الدخول</h1>
+        <div className="bg-white px-6 pt-6 pb-4 text-center border-b border-brand-border">
+          <img
+            src="/logos/red-star-logo.jpg"
+            alt="Red Star Travel"
+            className="h-28 w-auto mx-auto object-contain"
+          />
+          <div className="text-xs font-medium text-brand-muted mt-2">نظام الإدارة المتكامل</div>
+          <h1 className="text-lg font-bold text-brand-sidebar mt-0.5">تسجيل الدخول</h1>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {(localError || authError) && (
@@ -53,7 +58,7 @@ export const LoginPage: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="form-input text-left"
-              placeholder="admin@tourism.eg"
+              placeholder="admin@admin.com"
             />
           </div>
 
@@ -78,6 +83,22 @@ export const LoginPage: React.FC = () => {
             التسجيل العام مغلق. يتم إنشاء حسابات الموظفين فقط من خلال مدير النظام.
           </div>
         </form>
+      </div>
+
+      {/* Developer Credit */}
+      <div
+        dir="ltr"
+        className="mt-6 inline-flex items-center gap-2.5 px-4 py-2 rounded-xl bg-brand-sidebar/95 text-white/90 shadow-sm border border-brand-border/40"
+      >
+        <img
+          src="/logos/triple-mind-logo.jpg"
+          alt="Triple Mind Tech Solutions"
+          className="h-8 w-8 rounded-lg object-cover ring-1 ring-white/15"
+        />
+        <div className="text-left leading-tight">
+          <div className="text-[10px] uppercase tracking-wider text-brand-sidebar-label">Powered by</div>
+          <div className="text-xs font-semibold text-white">Triple Mind Tech Solutions</div>
+        </div>
       </div>
     </div>
   );

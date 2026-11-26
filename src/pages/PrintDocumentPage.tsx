@@ -145,23 +145,38 @@ export const PrintDocumentPage: React.FC = () => {
           size === 'a5' ? 'max-w-[148mm] p-5 text-xs' : 'max-w-[210mm] p-8 text-sm'
         }`}
       >
-        {/* Watermark */}
-        {settings?.watermark_text && (
-          <div className="pointer-events-none select-none absolute inset-0 flex items-center justify-center opacity-[0.06] -rotate-45">
-            <span className="text-6xl font-extrabold text-brand-sidebar whitespace-nowrap">
+        {/* Red Star Travel Logo Watermark */}
+        <div
+          className="pointer-events-none select-none absolute inset-0 flex flex-col items-center justify-center opacity-[0.08]"
+          style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+        >
+          <img
+            src="/logos/red-star-logo.jpg"
+            alt=""
+            className={size === 'a5' ? 'w-56 h-auto object-contain' : 'w-80 h-auto object-contain'}
+          />
+          {settings?.watermark_text && (
+            <span className="mt-2 text-xl font-extrabold text-brand-sidebar tracking-wide">
               {settings.watermark_text}
             </span>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="relative z-10 space-y-5">
           {/* Header */}
-          <div className="flex items-start justify-between border-b-2 border-brand-sidebar pb-3">
-            <div>
-              <h1 className="text-lg font-extrabold text-brand-sidebar">{settings?.company_name}</h1>
-              <p className="text-xs text-brand-muted mt-1">{settings?.contact_details}</p>
+          <div className="flex items-center justify-between gap-4 border-b-2 border-brand-sidebar pb-3">
+            <div className="flex items-center gap-3">
+              <img
+                src="/logos/red-star-logo.jpg"
+                alt="Red Star Travel"
+                className={size === 'a5' ? 'h-12 w-auto object-contain' : 'h-16 w-auto object-contain'}
+              />
+              <div>
+                <h1 className="text-lg font-extrabold text-brand-sidebar">{settings?.company_name}</h1>
+                <p className="text-xs text-brand-muted mt-0.5">{settings?.contact_details}</p>
+              </div>
             </div>
-            <div className="text-left">
+            <div className="text-left shrink-0">
               <div className="font-bold text-brand-accent">{title}</div>
               <div className="text-xs mt-1">
                 رقم المستند: <span className="font-bold">{docNumber}</span>

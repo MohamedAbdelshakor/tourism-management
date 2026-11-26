@@ -55,14 +55,25 @@ export const Layout: React.FC = () => {
           mobileOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="px-5 py-5 border-b border-white/10 flex items-center justify-between">
-          <div>
-            <div className="text-xs font-medium text-brand-sidebar-label">نظام الإدارة المتكامل</div>
-            <h1 className="text-lg font-bold tracking-tight mt-0.5">إدارة السياحة</h1>
+        <div className="px-4 py-4 border-b border-white/10 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="bg-white rounded-xl p-1.5 shadow-sm shrink-0">
+              <img
+                src="/logos/red-star-logo.jpg"
+                alt="Red Star Travel"
+                className="h-11 w-11 object-contain"
+              />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold tracking-tight truncate">Red Star Travel</h1>
+              <div className="text-[11px] font-medium text-brand-sidebar-label truncate mt-0.5">
+                نظام إدارة السياحة
+              </div>
+            </div>
           </div>
           <button
             type="button"
-            className="lg:hidden text-white/80 hover:text-white"
+            className="lg:hidden text-white/80 hover:text-white shrink-0"
             onClick={() => setMobileOpen(false)}
             aria-label="إغلاق القائمة"
           >
@@ -94,17 +105,34 @@ export const Layout: React.FC = () => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/10">
-          <div className="text-sm font-semibold truncate">{profile?.name}</div>
-          <div className="text-xs text-brand-sidebar-label truncate">{profile?.email}</div>
-          <button
-            type="button"
-            onClick={handleLogout}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium transition-colors"
+        <div className="p-4 border-t border-white/10 space-y-3">
+          <div>
+            <div className="text-sm font-semibold truncate">{profile?.name}</div>
+            <div className="text-xs text-brand-sidebar-label truncate">{profile?.email}</div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="mt-3 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-medium transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>تسجيل الخروج</span>
+            </button>
+          </div>
+
+          <div
+            dir="ltr"
+            className="pt-3 border-t border-white/10 flex items-center gap-2.5 opacity-90"
           >
-            <LogOut className="w-4 h-4" />
-            <span>تسجيل الخروج</span>
-          </button>
+            <img
+              src="/logos/triple-mind-logo.jpg"
+              alt="Triple Mind Tech Solutions"
+              className="h-8 w-8 rounded-lg object-cover ring-1 ring-white/15 shrink-0"
+            />
+            <div className="min-w-0 leading-tight">
+              <div className="text-[9px] uppercase tracking-wider text-brand-sidebar-label">Powered by</div>
+              <div className="text-[11px] font-semibold text-white truncate">Triple Mind Tech Solutions</div>
+            </div>
+          </div>
         </div>
       </aside>
 
