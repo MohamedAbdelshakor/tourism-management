@@ -18,6 +18,7 @@ export const ManageFieldsPage: React.FC<Props> = ({ department }) => {
   const [label, setLabel] = useState('');
   const [type, setType] = useState<FieldType>('text');
   const [optionsText, setOptionsText] = useState('');
+  const [defaultUrl, setDefaultUrl] = useState('');
   const [required, setRequired] = useState(false);
   const [showOnReceipt, setShowOnReceipt] = useState(true);
 
@@ -55,6 +56,7 @@ export const ManageFieldsPage: React.FC<Props> = ({ department }) => {
               .map((s) => s.trim())
               .filter(Boolean)
           : [],
+      default_url: type === 'link' ? defaultUrl.trim() : '',
       sort_order: fields.length + 1,
       is_system: false,
       deleted_at: null,
@@ -62,6 +64,7 @@ export const ManageFieldsPage: React.FC<Props> = ({ department }) => {
     await saveFieldDefinition(newField, { uid: profile.uid, name: profile.name }, true);
     setLabel('');
     setOptionsText('');
+    setDefaultUrl('');
     setRequired(false);
     await load();
   };
@@ -125,6 +128,7 @@ export const ManageFieldsPage: React.FC<Props> = ({ department }) => {
               <option value="date">تاريخ</option>
               <option value="select">قائمة اختيارات</option>
               <option value="checkbox">مربع اختيار (نعم/لا)</option>
+              <option value="link">زر برابط (لينك)</option>
             </select>
           </div>
           <div className="flex items-center gap-4 pt-6">
@@ -144,6 +148,19 @@ export const ManageFieldsPage: React.FC<Props> = ({ department }) => {
             </button>
           </div>
         </div>
+        {type === 'link' && (
+          <div>
+            <label className="form-label">الرابط (URL) — اتركه ثابتاً للزر أو فارغاً لإدخاله لكل حجز</label>
+            <input
+              type="url"
+              dir="ltr"
+              value={defaultUrl}
+              onChange={(e) => setDefaultUrl(e.target.value)}
+              className="form-input text-left"
+              placeholder="https://example.com"
+            />
+          </div>
+        )}
         {type === 'select' && (
           <div>
             <label className="form-label">خيارات القائمة (خيار في كل سطر)</label>
@@ -180,15 +197,35 @@ export const ManageFieldsPage: React.FC<Props> = ({ department }) => {
             ) : (
               fields.map((f) => (
                 <tr key={f.id} className={f.deleted_at ? 'bg-slate-50 opacity-70' : ''}>
-                  <td className="px-4 py-2.5">
+                  <td className="px-4 py-2.5 space-y-1.5">
                     <input
                       type="text"
                       defaultValue={f.label}
                       onBlur={(e) => updateLabel(f, e.target.value)}
                       className="form-input py-1 text-sm max-w-xs"
                     />
+                    {f.type === 'link' && (
+                      <input
+                        type="url"
+                        dir="ltr"
+                        defaultValue={f.default_url ?? ''}
+                        placeholder="https://..."
+                        onBlur={async (e) => {
+                          if (!profile || e.target.value.trim() === (f.default_url ?? '')) return;
+                          await saveFieldDefinition(
+                            { ...f, default_url: e.target.value.trim() },
+                            { uid: profile.uid, name: profile.name },
+                            false,
+                          );
+                          await load();
+                        }}
+                        className="form-input py-1 text-xs max-w-xs text-left"
+                      />
+                    )}
                   </td>
-                  <td className="px-4 py-2.5 text-xs text-brand-muted">{f.type}</td>
+                  <td className="px-4 py-2.5 text-xs text-brand-muted">
+                    {f.type === 'link' ? 'زر برابط' : f.type}
+                  </td>
                   <td className="px-4 py-2.5 text-xs text-brand-muted">
                     {f.is_system ? 'أساسي' : 'مخصص'}
                   </td>

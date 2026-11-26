@@ -17,6 +17,7 @@ export type FieldType =
   | 'select'
   | 'money'
   | 'checkbox'
+  | 'link'
   | 'national_id'
   | 'children'
   | 'employee';
@@ -78,6 +79,7 @@ export interface FieldDefinition {
   required: boolean;
   show_on_receipt: boolean;
   options: string[];
+  default_url?: string;
   sort_order: number;
   is_system: boolean;
   deleted_at: string | null;
@@ -125,9 +127,10 @@ export interface BookingRecord {
 export interface VisaDestinationField {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'date' | 'select' | 'checkbox';
+  type: 'text' | 'number' | 'date' | 'select' | 'checkbox' | 'link';
   required: boolean;
   options: string[];
+  default_url?: string;
 }
 
 export interface VisaDestination {

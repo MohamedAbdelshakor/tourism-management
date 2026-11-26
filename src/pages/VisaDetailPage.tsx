@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Pencil, Plus, Printer, Trash2, Wallet } from 'lucide-react';
+import { ArrowRight, ExternalLink, Pencil, Plus, Printer, Trash2, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CollectPaymentModal } from '../components/CollectPaymentModal';
 import { addExpense, collectCasePayment, deleteExpense, deleteVisaCase, getVisaCase, listExpenses, saveVisaCase } from '../lib/db';
-import { formatEgp, todayIsoDate, toPiasters } from '../lib/format';
+import { formatEgp, safeExternalUrl, todayIsoDate, toPiasters } from '../lib/format';
 import { ExpenseRecord, VisaCaseRecord } from '../types/domain';
 
 export const VisaDetailPage: React.FC = () => {
@@ -170,12 +170,29 @@ export const VisaDetailPage: React.FC = () => {
             <span className="text-brand-muted text-xs">الموظف المسؤول</span>
             <span>{vc.responsible_employee_name || '—'}</span>
           </div>
-          {Object.entries(vc.destination_values || {}).map(([k, v]) => (
-            <div key={k} className="flex justify-between py-1 border-b border-brand-border/50">
-              <span className="text-brand-muted text-xs">{vc.destination_field_labels?.[k] ?? k}</span>
-              <span>{typeof v === 'boolean' ? (v ? 'نعم' : 'لا') : String(v || '—')}</span>
-            </div>
-          ))}
+          {Object.entries(vc.destination_values || {}).map(([k, v]) => {
+            const label = vc.destination_field_labels?.[k] ?? k;
+            const isLink = vc.destination_field_types?.[k] === 'link';
+            const safeUrl = isLink ? safeExternalUrl(String(v ?? '')) : null;
+            return (
+              <div key={k} className="flex items-center justify-between py-1 border-b border-brand-border/50">
+                <span className="text-brand-muted text-xs">{label}</span>
+                {isLink && safeUrl ? (
+                  <a
+                    href={safeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary text-xs py-1 px-3"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>{label}</span>
+                  </a>
+                ) : (
+                  <span>{typeof v === 'boolean' ? (v ? 'نعم' : 'لا') : String(v || '—')}</span>
+                )}
+              </div>
+            );
+          })}
           {vc.notes && <div className="note-box text-xs">{vc.notes}</div>}
         </div>
 

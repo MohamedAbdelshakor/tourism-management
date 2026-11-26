@@ -121,6 +121,7 @@ export const VisaDestinationsPage: React.FC = () => {
                 <option value="date">تاريخ</option>
                 <option value="select">قائمة اختيارات</option>
                 <option value="checkbox">نعم/لا</option>
+                <option value="link">زر برابط (لينك)</option>
               </select>
               {f.type === 'select' ? (
                 <input
@@ -139,6 +140,19 @@ export const VisaDestinationsPage: React.FC = () => {
                     setFields(next);
                   }}
                   className="form-input text-xs"
+                />
+              ) : f.type === 'link' ? (
+                <input
+                  type="url"
+                  dir="ltr"
+                  placeholder="الرابط (https://...)"
+                  value={f.default_url ?? ''}
+                  onChange={(e) => {
+                    const next = [...fields];
+                    next[idx] = { ...next[idx], default_url: e.target.value };
+                    setFields(next);
+                  }}
+                  className="form-input text-xs text-left"
                 />
               ) : (
                 <label className="flex items-center gap-2 text-xs px-2">

@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Save } from 'lucide-react';
+import { ArrowRight, ExternalLink, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getBooking, listFieldDefinitions, listUsers, saveBooking } from '../lib/db';
-import { arabicWeekday, formatEgp, fromPiasters, maskNationalId, todayIsoDate, toPiasters } from '../lib/format';
+import { arabicWeekday, formatEgp, fromPiasters, maskNationalId, safeExternalUrl, todayIsoDate, toPiasters } from '../lib/format';
 import { BookingRecord, DEPARTMENT_LABELS, FieldDefinition, PAYMENT_METHODS, PaymentMethod, UserProfile } from '../types/domain';
 
 interface Props {
@@ -145,9 +145,13 @@ export const BookingFormPage: React.FC<Props> = ({ department }) => {
     const responsibleUser = users.find((u) => u.uid === responsibleUid);
     const customLabels: Record<string, string> = {};
     const customTypes: Record<string, string> = {};
+    const resolvedCustom: Record<string, string | boolean> = { ...customValues };
     for (const cf of customFields) {
       customLabels[cf.key] = cf.label;
       customTypes[cf.key] = cf.type;
+      if (cf.type === 'link' && !resolvedCustom[cf.key] && cf.default_url) {
+        resolvedCustom[cf.key] = cf.default_url;
+      }
     }
 
     const masked = nationalIdPlain.trim()
@@ -188,7 +192,7 @@ export const BookingFormPage: React.FC<Props> = ({ department }) => {
           payment_method: paymentMethod,
           responsible_employee_uid: responsibleUid || profile.uid,
           responsible_employee_name: responsibleUser?.name ?? profile.name,
-          custom: customValues,
+          custom: resolvedCustom,
           custom_labels: { ...(existing?.custom_labels ?? {}), ...customLabels },
           custom_types: { ...(existing?.custom_types ?? {}), ...customTypes },
         },
@@ -600,6 +604,31 @@ export const BookingFormPage: React.FC<Props> = ({ department }) => {
                     />
                     <span>نعم</span>
                   </label>
+                ) : cf.type === 'link' ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="url"
+                        dir="ltr"
+                        required={cf.required && !cf.default_url}
+                        value={String(customValues[cf.key] ?? cf.default_url ?? '')}
+                        onChange={(e) => setCustomValues({ ...customValues, [cf.key]: e.target.value })}
+                        placeholder="https://..."
+                        className="form-input text-left"
+                      />
+                      {safeExternalUrl(String(customValues[cf.key] ?? cf.default_url ?? '')) && (
+                        <a
+                          href={safeExternalUrl(String(customValues[cf.key] ?? cf.default_url ?? ''))!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-primary text-xs shrink-0 px-3"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>{cf.label}</span>
+                        </a>
+                      )}
+                    </div>
+                  </div>
                 ) : (
                   <input
                     type={cf.type === 'date' ? 'date' : cf.type === 'number' || cf.type === 'money' ? 'number' : 'text'}

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Save } from 'lucide-react';
+import { ArrowRight, ExternalLink, Save } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getVisaCase,
@@ -10,7 +10,7 @@ import {
   listVisaDestinations,
   saveVisaCase,
 } from '../lib/db';
-import { formatEgp, fromPiasters, todayIsoDate, toPiasters } from '../lib/format';
+import { formatEgp, fromPiasters, safeExternalUrl, todayIsoDate, toPiasters } from '../lib/format';
 import { PAYMENT_METHODS, PaymentMethod, SupplierRecord, UserProfile, VisaCaseRecord, VisaDestination } from '../types/domain';
 
 export const VisaFormPage: React.FC = () => {
@@ -122,9 +122,13 @@ export const VisaFormPage: React.FC = () => {
     const emp = users.find((u) => u.uid === responsibleUid);
     const fieldLabels: Record<string, string> = {};
     const fieldTypes: Record<string, string> = {};
+    const resolvedDestValues: Record<string, string | boolean> = { ...destValues };
     for (const f of selectedDestination?.fields ?? []) {
       fieldLabels[f.key] = f.label;
       fieldTypes[f.key] = f.type;
+      if (f.type === 'link' && !resolvedDestValues[f.key] && f.default_url) {
+        resolvedDestValues[f.key] = f.default_url;
+      }
     }
 
     setSaving(true);
@@ -137,7 +141,7 @@ export const VisaFormPage: React.FC = () => {
           phone: phone.trim(),
           destination_id: destinationId,
           destination_name: selectedDestination?.name ?? existing?.destination_name ?? '',
-          destination_values: destValues,
+          destination_values: resolvedDestValues,
           destination_field_labels: { ...(existing?.destination_field_labels ?? {}), ...fieldLabels },
           destination_field_types: { ...(existing?.destination_field_types ?? {}), ...fieldTypes },
           visa_price_piasters: pricePiasters,
@@ -353,6 +357,29 @@ export const VisaFormPage: React.FC = () => {
                     />
                     <span>نعم</span>
                   </label>
+                ) : f.type === 'link' ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="url"
+                      dir="ltr"
+                      required={f.required && !f.default_url}
+                      value={String(destValues[f.key] ?? f.default_url ?? '')}
+                      onChange={(e) => setDestValues({ ...destValues, [f.key]: e.target.value })}
+                      placeholder="https://..."
+                      className="form-input text-left"
+                    />
+                    {safeExternalUrl(String(destValues[f.key] ?? f.default_url ?? '')) && (
+                      <a
+                        href={safeExternalUrl(String(destValues[f.key] ?? f.default_url ?? ''))!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn-primary text-xs shrink-0 px-3"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>{f.label}</span>
+                      </a>
+                    )}
+                  </div>
                 ) : (
                   <input
                     type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}

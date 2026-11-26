@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowRight, Eye, EyeOff, Pencil, Printer, Trash2, Wallet } from 'lucide-react';
+import { ArrowRight, ExternalLink, Eye, EyeOff, Pencil, Printer, Trash2, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { CollectPaymentModal } from '../components/CollectPaymentModal';
 import { collectCasePayment, deleteBooking, getBooking, revealBookingNationalId } from '../lib/db';
-import { formatEgp } from '../lib/format';
+import { formatEgp, safeExternalUrl } from '../lib/format';
 import { BookingRecord, DEPARTMENT_LABELS } from '../types/domain';
 
 interface Props {
@@ -195,13 +195,34 @@ export const BookingDetailPage: React.FC<Props> = ({ department }) => {
         <div className="card p-5 space-y-3 text-sm">
           <h2 className="font-bold text-brand-accent border-b border-brand-border pb-2">الحقول الإضافية</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {Object.entries(booking.custom).map(([k, v]) => (
-              <DetailRow
-                key={k}
-                label={booking.custom_labels?.[k] ?? k}
-                value={typeof v === 'boolean' ? (v ? 'نعم' : 'لا') : String(v || '—')}
-              />
-            ))}
+            {Object.entries(booking.custom).map(([k, v]) => {
+              const label = booking.custom_labels?.[k] ?? k;
+              const isLink = booking.custom_types?.[k] === 'link';
+              const safeUrl = isLink ? safeExternalUrl(String(v ?? '')) : null;
+              if (isLink && safeUrl) {
+                return (
+                  <div key={k} className="flex items-center justify-between gap-2 py-1 border-b border-brand-border/50">
+                    <span className="text-brand-muted text-xs">{label}</span>
+                    <a
+                      href={safeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-primary text-xs py-1 px-3"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>{label}</span>
+                    </a>
+                  </div>
+                );
+              }
+              return (
+                <DetailRow
+                  key={k}
+                  label={label}
+                  value={typeof v === 'boolean' ? (v ? 'نعم' : 'لا') : String(v || '—')}
+                />
+              );
+            })}
           </div>
         </div>
       )}
