@@ -38,7 +38,7 @@ import {
   VisaCaseRecord,
 } from '../types/domain';
 
-type Period = 'daily' | 'weekly' | 'monthly';
+type Period = 'daily' | 'weekly' | 'monthly' | 'all';
 type Tab = 'reports' | 'payments' | 'debts' | 'suppliers' | 'expenses' | 'commissions' | 'balances';
 
 export const AccountingPage: React.FC = () => {
@@ -125,6 +125,7 @@ export const AccountingPage: React.FC = () => {
   }, []);
 
   const inPeriod = (dateStr: string): boolean => {
+    if (period === 'all') return true;
     if (!dateStr) return false;
     const today = todayIsoDate();
     if (period === 'daily') return dateStr === today;
@@ -135,8 +136,85 @@ export const AccountingPage: React.FC = () => {
     return diffDays >= 0 && diffDays <= 7;
   };
 
+  // Merge manual/auto-synced payments with any older bookings/visas/apartments created before auto-sync
+  const effectivePayments = useMemo<PaymentRecord[]>(() => {
+    const existingIds = new Set(payments.map((p) => p.id));
+    const merged: PaymentRecord[] = [...payments];
+
+    for (const b of bookings) {
+      if ((b.paid_piasters ?? 0) > 0 && !existingIds.has(`auto_booking_${b.id}`)) {
+        merged.push({
+          id: `legacy_booking_${b.id}`,
+          client_name: b.client_name,
+          reference: b.receipt_number,
+          amount_minor: b.paid_piasters,
+          currency: 'EGP',
+          exchange_rate_on_receipt: null,
+          payment_method: b.payment_method ?? 'cash',
+          payment_date: b.booking_date || b.created_at?.slice(0, 10) || todayIsoDate(),
+          notes: b.department === 'domestic_tourism' ? 'تحصيل تلقائي — سياحة داخلية' : 'تحصيل تلقائي — سياحة خارجية',
+          source_type: 'booking',
+          source_id: b.id,
+          created_at: b.created_at,
+        });
+      }
+    }
+
+    for (const v of visaCases) {
+      if ((v.paid_piasters ?? 0) > 0 && !existingIds.has(`auto_visa_${v.id}`)) {
+        merged.push({
+          id: `legacy_visa_${v.id}`,
+          client_name: v.client_name,
+          reference: v.invoice_number,
+          amount_minor: v.paid_piasters,
+          currency: 'EGP',
+          exchange_rate_on_receipt: null,
+          payment_method: v.payment_method ?? 'cash',
+          payment_date: v.case_date || v.created_at?.slice(0, 10) || todayIsoDate(),
+          notes: `تحصيل تلقائي — تأشيرات (${v.destination_name || 'عام'})`,
+          source_type: 'visa',
+          source_id: v.id,
+          created_at: v.created_at,
+        });
+      }
+    }
+
+    for (const a of apartments) {
+      if ((a.paid_piasters ?? 0) > 0 && !existingIds.has(`auto_apartment_${a.id}`)) {
+        merged.push({
+          id: `legacy_apartment_${a.id}`,
+          client_name: a.buyer_name || a.name_or_address,
+          reference: a.invoice_number || a.name_or_address,
+          amount_minor: a.paid_piasters,
+          currency: 'EGP',
+          exchange_rate_on_receipt: null,
+          payment_method: a.payment_method ?? 'cash',
+          payment_date: a.sale_date || a.created_at?.slice(0, 10) || todayIsoDate(),
+          notes: `تحصيل تلقائي — عقارات (${a.name_or_address})`,
+          source_type: 'apartment',
+          source_id: a.id,
+          created_at: a.created_at,
+        });
+      }
+    }
+
+    return merged.sort((a, b) => String(b.payment_date ?? '').localeCompare(String(a.payment_date ?? '')));
+  }, [payments, bookings, visaCases, apartments]);
+
+  // All-time Treasury (الخزنة) balances by payment method (EGP)
+  const treasury = useMemo(() => {
+    const byMethod: Record<PaymentMethod, number> = { cash: 0, instapay: 0, vodafone_cash: 0 };
+    for (const p of effectivePayments) {
+      if (p.currency === 'EGP') {
+        byMethod[p.payment_method] = (byMethod[p.payment_method] ?? 0) + p.amount_minor;
+      }
+    }
+    const total = byMethod.cash + byMethod.instapay + byMethod.vodafone_cash;
+    return { ...byMethod, total };
+  }, [effectivePayments]);
+
   const report = useMemo(() => {
-    const egpPayments = payments.filter((p) => p.currency === 'EGP' && inPeriod(p.payment_date));
+    const egpPayments = effectivePayments.filter((p) => p.currency === 'EGP' && inPeriod(p.payment_date));
     const egpCollected = egpPayments.reduce((s, p) => s + p.amount_minor, 0);
     const byMethod: Record<PaymentMethod, number> = { cash: 0, instapay: 0, vodafone_cash: 0 };
     for (const p of egpPayments) {
@@ -145,7 +223,7 @@ export const AccountingPage: React.FC = () => {
 
     // Foreign currency inventory (recorded per currency WITHOUT auto-conversion)
     const fxInventory: Record<string, number> = {};
-    for (const p of payments) {
+    for (const p of effectivePayments) {
       if (p.currency !== 'EGP') {
         fxInventory[p.currency] = (fxInventory[p.currency] ?? 0) + p.amount_minor;
       }
@@ -160,7 +238,7 @@ export const AccountingPage: React.FC = () => {
     const netProfit = egpCollected - periodExpenses - periodCommissions;
 
     return { egpCollected, byMethod, fxInventory, periodExpenses, periodCommissions, netProfit };
-  }, [payments, expenses, commissions, period]);
+  }, [effectivePayments, expenses, commissions, period]);
 
   const supplierSummaries = useMemo(() => {
     return suppliers.map((s) => {
@@ -295,6 +373,32 @@ export const AccountingPage: React.FC = () => {
         </p>
       </div>
 
+      {/* الخزنة (Treasury Summary) */}
+      <div className="card p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-bold text-brand-accent">الخزنة (رصيد المتحصلات التراكمي — ج.م)</h2>
+          <span className="text-[11px] text-brand-muted">يشمل كل التحصيلات من السياحة الداخلية والخارجية والتأشيرات والعقارات والدفعات اليدوية</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-brand-border bg-brand-page p-4">
+            <div className="text-xs text-brand-muted">نقدي (كاش)</div>
+            <div className="text-lg font-bold text-brand-ink mt-1">{formatEgp(treasury.cash)}</div>
+          </div>
+          <div className="rounded-xl border border-brand-border bg-brand-page p-4">
+            <div className="text-xs text-brand-muted">إنستا باي</div>
+            <div className="text-lg font-bold text-brand-ink mt-1">{formatEgp(treasury.instapay)}</div>
+          </div>
+          <div className="rounded-xl border border-brand-border bg-brand-page p-4">
+            <div className="text-xs text-brand-muted">فودافون كاش</div>
+            <div className="text-lg font-bold text-brand-ink mt-1">{formatEgp(treasury.vodafone_cash)}</div>
+          </div>
+          <div className="rounded-xl border border-brand-primary/30 bg-brand-sidebar text-white p-4">
+            <div className="text-xs text-brand-sidebar-label">إجمالي الخزنة</div>
+            <div className="text-lg font-bold mt-1">{formatEgp(treasury.total)}</div>
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-brand-border pb-2">
         {(
@@ -333,6 +437,7 @@ export const AccountingPage: React.FC = () => {
                     ['daily', 'يومي'],
                     ['weekly', 'أسبوعي'],
                     ['monthly', 'شهري'],
+                    ['all', 'الكل'],
                   ] as [Period, string][]
                 ).map(([p, label]) => (
                   <button
@@ -442,7 +547,7 @@ export const AccountingPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-brand-border">
-                    {payments.map((p) => (
+                    {effectivePayments.map((p) => (
                       <tr key={p.id}>
                         <td className="px-4 py-2.5">{p.payment_date}</td>
                         <td className="px-4 py-2.5 font-medium">{p.client_name}</td>
@@ -465,17 +570,21 @@ export const AccountingPage: React.FC = () => {
                         </td>
                         {editable && (
                           <td className="px-4 py-2.5 text-center">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                if (!profile) return;
-                                await deletePayment(p, { uid: profile.uid, name: profile.name });
-                                await load();
-                              }}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!p.id.startsWith('legacy_') ? (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!profile) return;
+                                  await deletePayment(p, { uid: profile.uid, name: profile.name });
+                                  await load();
+                                }}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <span className="text-[11px] text-brand-muted">—</span>
+                            )}
                           </td>
                         )}
                       </tr>
